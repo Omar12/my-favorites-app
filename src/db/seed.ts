@@ -4,18 +4,17 @@ config({ path: ".env.local" });
 async function main() {
   const { db } = await import("./index");
   const { users, lists, items } = await import("./schema");
+  const { eq } = await import("drizzle-orm");
   type NewItem = Omit<typeof items.$inferInsert, "listId" | "position">;
 
   await db.delete(users); // cascades to lists and items
 
-  const [omar] = await db
-    .insert(users)
-    .values({
-      username: "omar",
-      displayName: "Omar",
-      bio: "Things I'd tell a friend about: places, videos, and other good finds.",
-    })
-    .returning();
+  const { createOwner } = await import("./create-owner");
+  const omar = await createOwner();
+  await db
+    .update(users)
+    .set({ bio: "Things I'd tell a friend about: places, videos, and other good finds." })
+    .where(eq(users.id, omar.id));
 
   const seed: { list: Omit<typeof lists.$inferInsert, "userId">; items: NewItem[] }[] = [
     {
