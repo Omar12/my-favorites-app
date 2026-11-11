@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import type { List } from "@/db/schema";
 import type { ListFormState } from "./actions";
 
-const field =
+export const field =
   "mt-1 block w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-base outline-none focus:border-accent";
 
 const STATUS_HELP = [
@@ -14,7 +14,7 @@ const STATUS_HELP = [
   ["public", "Public", "shown on your profile"],
 ] as const;
 
-function FieldError({ message }: { message?: string }) {
+export function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return (
     <p role="alert" className="mt-1 text-sm text-red-600 dark:text-red-400">
