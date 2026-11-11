@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { lists } from "@/db/schema";
 import { requireUser } from "@/lib/session";
 import { moveList, signOut } from "./actions";
+import { ShareListButton } from "./share-list-button";
 
 // Reads the session cookie, so this page is rendered per request.
 export const instant = false;
@@ -64,9 +65,15 @@ export default async function DashboardPage() {
                     {list.itemCount} {list.itemCount === 1 ? "item" : "items"}
                   </span>
                   {list.status !== "draft" && (
-                    <Link href={`/${user.username}/${list.slug}`} className="text-accent underline-offset-4 hover:underline">
-                      View
-                    </Link>
+                    <>
+                      <Link
+                        href={`/${user.username}/${list.slug}`}
+                        className="text-accent underline-offset-4 hover:underline"
+                      >
+                        View
+                      </Link>
+                      <ShareListButton path={`/${user.username}/${list.slug}`} title={list.title} />
+                    </>
                   )}
                 </p>
               </div>
