@@ -31,7 +31,7 @@ export function ItemDropTarget({ id, children }: { id: string; children: ReactNo
       }}
       className={`rounded-2xl ${over ? "outline-2 outline-offset-4 outline-accent" : ""} ${pending ? "opacity-60" : ""}`}
     >
-      <ul className="space-y-3">{children}</ul>
+      <ul className="space-y-1">{children}</ul>
     </li>
   );
 }
@@ -49,7 +49,8 @@ export function ItemDragHandle({ id }: { id: string }) {
         const row = e.currentTarget.closest("[data-drag-item]");
         if (row) e.dataTransfer.setDragImage(row, 20, 20);
       }}
-      className="inline-flex size-9 cursor-grab items-center justify-center rounded-lg border border-border text-muted select-none hover:border-accent hover:text-foreground active:cursor-grabbing"
+      // shortcut: hidden on touch screens, where browser drag and drop does not work; show it again once touch dragging exists (see roadmap.md)
+      className="inline-flex pointer-coarse:hidden size-9 cursor-grab items-center justify-center rounded-lg border border-border text-muted select-none hover:border-accent hover:text-foreground active:cursor-grabbing"
     >
       ⠿
     </span>

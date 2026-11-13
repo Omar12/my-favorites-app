@@ -1,19 +1,19 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
 import { ItemCard } from "@/components/item-card";
 import { items, lists } from "@/db/schema";
 import { requireUser } from "@/lib/session";
-import { addItem, moveItem, updateItem, updateList } from "../../actions";
+import { addItem, moveItem, restoreItem, updateItem, updateList } from "../../actions";
 import { DeleteListButton } from "../../delete-list-button";
 import { ItemDragHandle, ItemDropTarget } from "../../item-drag";
 import { ItemForm } from "../../item-form";
 import { ListForm } from "../../list-form";
+import { MoveButtons } from "../../move-buttons";
 import { RemoveItemButton } from "../../remove-item-button";
-
-const arrow =
-  "inline-flex size-9 items-center justify-center rounded-lg border border-border text-muted hover:border-accent hover:text-foreground disabled:opacity-30 disabled:hover:border-border";
+import { ShareListButton } from "../../share-list-button";
 
 // Reads the session cookie, so this page is rendered per request.
 export const instant = false;
@@ -24,60 +24,119 @@ export default async function EditListPage({ params }: PageProps<"/dashboard/lis
   if (!z.uuid().safeParse(id).success) notFound();
 
   const list = await db.query.lists.findFirst({
-    where: and(eq(lists.id, id), eq(lists.userId, user.id)),
+    where: and(eq(lists.id, id), eq(lists.userId, user.id), isNull(lists.deletedAt)),
     with: { items: { orderBy: asc(items.position) } },
   });
   if (!list) notFound();
+  const live = list.items.filter((item) => !item.deletedAt);
+  const removed = list.items.filter((item) => item.deletedAt);
 
   return (
     <>
-      <h1 className="mb-6 text-2xl font-bold tracking-tight">Edit list</h1>
-      <ListForm action={updateList.bind(null, list.id)} list={list} username={user.username} />
-      <section className="mt-10 border-t border-border pt-6">
+      <Link href="/dashboard" className="tap text-sm font-medium text-muted underline-offset-4 hover:text-foreground hover:underline">
+        ← Your lists
+      </Link>
+      <header className="mt-3 mb-8">
+        <h1 className="text-2xl font-bold tracking-tight text-balance break-words">{list.title}</h1>
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
+          <span className="capitalize">{list.status}</span>
+          {list.status !== "draft" && (
+            <>
+              <span className="break-all">
+                /{user.username}/{list.slug}
+              </span>
+              <Link href={`/${user.username}/${list.slug}`} className="tap text-accent underline-offset-4 hover:underline">
+                View
+              </Link>
+              <ShareListButton path={`/${user.username}/${list.slug}`} title={list.title} />
+            </>
+          )}
+          {live.length > 0 && (
+            <a href="#add-item" className="tap text-accent underline-offset-4 hover:underline">
+              Add an item
+            </a>
+          )}
+        </p>
+      </header>
+      <section>
         <h2 className="mb-4 text-xl font-bold tracking-tight">Items</h2>
-        {list.items.length > 0 && (
-          <ul className="mb-6 space-y-3">
-            {list.items.map((item, i) => (
+        {live.length > 0 && (
+          <ul className="mb-8 space-y-6">
+            {live.map((item, i) => (
               <ItemDropTarget key={item.id} id={item.id}>
-                <ItemCard item={item} rank={list.isRanked ? i + 1 : undefined} />
-                <li className="flex items-start gap-3">
-                  <details className="min-w-0 flex-1">
-                    <summary className="cursor-pointer py-2 text-sm font-medium text-accent">Edit {item.title}</summary>
+                <ItemCard item={item} rank={list.isRanked ? i + 1 : undefined} heading="h3" />
+                <li className="relative">
+                  {/* The summary leaves room on the right for the reorder buttons, so the open panel gets the full width. */}
+                  <details>
+                    <summary className="cursor-pointer py-2 pr-44 text-sm font-medium text-accent pointer-coarse:py-3 pointer-coarse:pr-40">
+                      Edit {item.title}
+                    </summary>
                     <div className="mt-3 mb-4">
                       <ItemForm action={updateItem.bind(null, item.id)} item={item} />
+                      {/* Kept inside the panel, away from the reorder buttons, so it can't be hit by accident. */}
+                      <div className="mt-4">
+                        <RemoveItemButton id={item.id} title={item.title} />
+                      </div>
                     </div>
                   </details>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <RemoveItemButton id={item.id} title={item.title} />
-                    <div className="flex gap-1.5">
-                      <ItemDragHandle id={item.id} />
-                      <form action={moveItem.bind(null, item.id, "up")}>
-                        <button className={arrow} disabled={i === 0} aria-label={`Move ${item.title} up`}>
-                          ↑
-                        </button>
-                      </form>
-                      <form action={moveItem.bind(null, item.id, "down")}>
-                        <button
-                          className={arrow}
-                          disabled={i === list.items.length - 1}
-                          aria-label={`Move ${item.title} down`}
-                        >
-                          ↓
-                        </button>
-                      </form>
-                    </div>
+                  <div className="absolute top-0 right-0 flex gap-1.5">
+                    <ItemDragHandle id={item.id} />
+                    <MoveButtons
+                      title={item.title}
+                      index={i}
+                      count={live.length}
+                      up={moveItem.bind(null, item.id, "up")}
+                      down={moveItem.bind(null, item.id, "down")}
+                      top={moveItem.bind(null, item.id, { onto: live[0].id })}
+                    />
                   </div>
                 </li>
               </ItemDropTarget>
             ))}
           </ul>
         )}
-        <h3 className="mb-3 text-base font-semibold">Add an item</h3>
+        {live.length === 0 && (
+          <p className="mb-6 text-muted">Nothing on this list yet. Add the first thing you&apos;d recommend, and say why.</p>
+        )}
+        <h2 id="add-item" className="mb-4 scroll-mt-6 text-xl font-bold tracking-tight">
+          Add an item
+        </h2>
         <ItemForm action={addItem.bind(null, list.id)} />
+        {removed.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-sm font-semibold">Recently removed</h2>
+            <p className="mt-1 text-xs text-muted">Kept for 30 days, then gone for good.</p>
+            <ul className="mt-2 divide-y divide-border">
+              {removed.map((item) => (
+                <li key={item.id} className="flex items-center justify-between gap-3 py-1.5">
+                  <span className="min-w-0 text-sm break-words text-muted">{item.title}</span>
+                  <form action={restoreItem.bind(null, item.id)}>
+                    <button
+                      className="tap text-sm font-medium text-accent underline-offset-4 hover:underline"
+                      aria-label={`Restore ${item.title}`}
+                    >
+                      Restore
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
-      <div className="mt-10 border-t border-border pt-5">
-        <DeleteListButton id={list.id} title={list.title} />
-      </div>
+      <details className="mt-10 border-t border-border pt-4">
+        <summary className="cursor-pointer py-2 pointer-coarse:py-3 text-xl font-bold tracking-tight">List settings</summary>
+        <div className="mt-4">
+          <ListForm action={updateList.bind(null, list.id)} list={list} username={user.username} />
+          <div className="mt-8 border-t border-border pt-5">
+            <DeleteListButton id={list.id} />
+            <p className="mt-1 text-xs text-muted">
+              Takes the list and its {live.length === 1 ? "1 item" : `${live.length} items`} offline. You can restore it
+              from your lists for 30 days.
+            </p>
+          </div>
+        </div>
+      </details>
     </>
   );
 }

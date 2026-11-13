@@ -9,7 +9,7 @@ const KIND_LABEL: Record<Item["kind"], string | null> = {
 };
 
 /** The one-line "where / what" under the title, built from type-specific details. */
-function metaLine(item: Item) {
+export function metaLine(item: Item) {
   const d = item.details;
   const parts =
     item.kind === "place"
@@ -20,7 +20,16 @@ function metaLine(item: Item) {
   return [KIND_LABEL[item.kind], ...parts].filter(Boolean).join(" · ");
 }
 
-export function ItemCard({ item, rank }: { item: Item; rank?: number }) {
+/** `heading` is the title's level: h2 on the public list page, h3 where the card sits under a section heading. */
+export function ItemCard({
+  item,
+  rank,
+  heading: Heading = "h2",
+}: {
+  item: Item;
+  rank?: number;
+  heading?: "h2" | "h3";
+}) {
   const url = safeUrl(item.url);
   const mapsUrl = item.kind === "place" ? safeUrl(item.details.mapsUrl) : null;
   const imageUrl = safeUrl(item.imageUrl);
@@ -32,7 +41,7 @@ export function ItemCard({ item, rank }: { item: Item; rank?: number }) {
         <span className="w-7 shrink-0 text-2xl leading-7 font-bold text-accent tabular-nums">{rank}</span>
       )}
       <div className="min-w-0 flex-1">
-        <h2 className="text-base leading-snug font-semibold break-words">{item.title}</h2>
+        <Heading className="text-base leading-snug font-semibold break-words">{item.title}</Heading>
         {meta && <p className="mt-0.5 text-xs text-muted">{meta}</p>}
         {item.note && <p className="mt-2 text-sm leading-relaxed whitespace-pre-line">{item.note}</p>}
         {(url || mapsUrl) && (
