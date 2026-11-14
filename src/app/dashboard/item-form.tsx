@@ -19,7 +19,7 @@ export function ItemForm({
   return (
     <form action={formAction} onInput={() => setEditedSince(state)} className="space-y-4">
       {state.error && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-danger">
           {state.error}
         </p>
       )}
@@ -89,12 +89,12 @@ export function ItemForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-xl bg-accent px-5 py-2.5 font-semibold text-white disabled:opacity-60 dark:text-black"
+          className="press rounded-xl bg-accent px-5 py-2.5 font-semibold text-white disabled:opacity-60 dark:text-black"
         >
           {pending ? "Saving…" : item ? "Save item" : "Add item"}
         </button>
         <span role="status" className="text-sm text-muted">
-          {state.saved && !pending && editedSince !== state && (item ? "Saved" : "Added")}
+          {state.saved && !pending && editedSince !== state && <span className="pop">{item ? "Saved" : "Added"}</span>}
         </span>
       </div>
     </form>

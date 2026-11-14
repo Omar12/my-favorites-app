@@ -34,7 +34,9 @@ export function ShareListButton({
       }}
       className={className}
     >
-      <span aria-live="polite">{label}</span>
+      <span key={label} aria-live="polite" className={label === idle ? undefined : "pop"}>
+        {label}
+      </span>
     </button>
   );
 }

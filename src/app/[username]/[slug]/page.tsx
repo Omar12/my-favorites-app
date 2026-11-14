@@ -79,7 +79,7 @@ export default async function ListPage({ params }: PageProps<"/[username]/[slug]
               path={`/${user.username}/${list.slug}`}
               title={list.title}
               label="Send this list"
-              className="inline-flex min-h-11 items-center rounded-full border border-field px-5 font-semibold transition-colors hover:border-accent hover:text-accent"
+              className="press inline-flex min-h-11 items-center rounded-full border border-field px-5 font-semibold transition-colors hover:border-accent hover:text-accent"
             />
           </p>
         </>

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 
 const button =
-  "inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-border px-2 text-sm text-muted hover:border-accent hover:text-foreground aria-disabled:opacity-30 aria-disabled:hover:border-border aria-disabled:hover:text-muted pointer-coarse:h-11 pointer-coarse:min-w-11";
+  "press inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-border px-2 text-sm text-muted hover:border-accent hover:text-foreground aria-disabled:opacity-30 aria-disabled:hover:border-border aria-disabled:hover:text-muted pointer-coarse:h-11 pointer-coarse:min-w-11";
 
 type Move = () => Promise<void>;
 

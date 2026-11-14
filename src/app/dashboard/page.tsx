@@ -1,3 +1,4 @@
+import { RowMotion } from "@/components/row-motion";
 import { and, asc, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import Link from "next/link";
 import { db } from "@/db";
@@ -12,8 +13,8 @@ export const instant = false;
 
 const STATUS_STYLE = {
   draft: "border-border text-muted",
-  unlisted: "border-amber-500/50 text-amber-700 dark:text-amber-400",
-  public: "border-emerald-500/50 text-emerald-700 dark:text-emerald-400",
+  unlisted: "border-caution/50 text-caution",
+  public: "border-positive/50 text-positive",
 } as const;
 
 export default async function DashboardPage() {
@@ -58,44 +59,46 @@ export default async function DashboardPage() {
       ) : (
         <ul className="mt-6 space-y-3">
           {myLists.map((list, i) => (
-            <li key={list.id} className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4">
-              <div className="min-w-0 flex-1">
-                <Link
-                  href={`/dashboard/lists/${list.id}`}
-                  className="block leading-snug font-semibold break-words underline-offset-4 hover:underline pointer-coarse:py-3"
-                >
-                  {list.title}
-                </Link>
-                <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-                  <span className={`rounded-full border px-2 py-0.5 font-medium capitalize ${STATUS_STYLE[list.status]}`}>
-                    {list.status}
-                  </span>
-                  <span>
-                    {list.itemCount} {list.itemCount === 1 ? "item" : "items"}
-                  </span>
-                  {list.status !== "draft" && (
-                    <span className="flex gap-x-2">
-                      <Link
-                        href={`/${user.username}/${list.slug}`}
-                        className="tap text-accent underline-offset-4 hover:underline"
-                      >
-                        View
-                      </Link>
-                      <ShareListButton path={`/${user.username}/${list.slug}`} title={list.title} />
+            <RowMotion key={list.id} name={`list-${list.id}`}>
+              <li className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4">
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/dashboard/lists/${list.id}`}
+                    className="block leading-snug font-semibold break-words underline-offset-4 hover:underline pointer-coarse:py-3"
+                  >
+                    {list.title}
+                  </Link>
+                  <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+                    <span className={`rounded-full border px-2 py-0.5 font-medium capitalize ${STATUS_STYLE[list.status]}`}>
+                      {list.status}
                     </span>
-                  )}
-                </p>
-              </div>
-              <div className="shrink-0">
-                <MoveButtons
-                  title={list.title}
-                  index={i}
-                  count={myLists.length}
-                  up={moveList.bind(null, list.id, "up")}
-                  down={moveList.bind(null, list.id, "down")}
-                />
-              </div>
-            </li>
+                    <span>
+                      {list.itemCount} {list.itemCount === 1 ? "item" : "items"}
+                    </span>
+                    {list.status !== "draft" && (
+                      <span className="flex gap-x-2">
+                        <Link
+                          href={`/${user.username}/${list.slug}`}
+                          className="tap text-accent underline-offset-4 hover:underline"
+                        >
+                          View
+                        </Link>
+                        <ShareListButton path={`/${user.username}/${list.slug}`} title={list.title} />
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="shrink-0">
+                  <MoveButtons
+                    title={list.title}
+                    index={i}
+                    count={myLists.length}
+                    up={moveList.bind(null, list.id, "up")}
+                    down={moveList.bind(null, list.id, "down")}
+                  />
+                </div>
+              </li>
+            </RowMotion>
           ))}
         </ul>
       )}
@@ -106,17 +109,19 @@ export default async function DashboardPage() {
           <p className="mt-1 text-xs text-muted">Kept for 30 days, then gone for good.</p>
           <ul className="mt-2 divide-y divide-border">
             {deletedLists.map((list) => (
-              <li key={list.id} className="flex items-center justify-between gap-3 py-1.5">
-                <span className="min-w-0 text-sm break-words text-muted">{list.title}</span>
-                <form action={restoreList.bind(null, list.id)}>
-                  <button
-                    className="tap text-sm font-medium text-accent underline-offset-4 hover:underline"
-                    aria-label={`Restore ${list.title}`}
-                  >
-                    Restore
-                  </button>
-                </form>
-              </li>
+              <RowMotion key={list.id} name={`list-${list.id}`}>
+                <li className="flex items-center justify-between gap-3 py-1.5">
+                  <span className="min-w-0 text-sm break-words text-muted">{list.title}</span>
+                  <form action={restoreList.bind(null, list.id)}>
+                    <button
+                      className="tap text-sm font-medium text-accent underline-offset-4 hover:underline"
+                      aria-label={`Restore ${list.title}`}
+                    >
+                      Restore
+                    </button>
+                  </form>
+                </li>
+              </RowMotion>
             ))}
           </ul>
         </section>

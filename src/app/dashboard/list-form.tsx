@@ -17,7 +17,7 @@ const STATUS_HELP = [
 export function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <p role="alert" className="mt-1 text-sm text-red-600 dark:text-red-400">
+    <p role="alert" className="mt-1 text-sm text-danger">
       {message}
     </p>
   );
@@ -39,7 +39,7 @@ export function ListForm({
   return (
     <form action={formAction} onInput={() => setEditedSince(state)} className="space-y-5">
       {state.error && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-danger">
           {state.error}
         </p>
       )}

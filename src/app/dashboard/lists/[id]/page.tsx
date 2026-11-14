@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
 import { ItemCard } from "@/components/item-card";
+import { RowMotion } from "@/components/row-motion";
 import { items, lists } from "@/db/schema";
 import { requireUser } from "@/lib/session";
 import { addItem, moveItem, restoreItem, updateItem, updateList } from "../../actions";
@@ -63,62 +64,70 @@ export default async function EditListPage({ params }: PageProps<"/dashboard/lis
         {live.length > 0 && (
           <ul className="mb-8 space-y-6">
             {live.map((item, i) => (
-              <ItemDropTarget key={item.id} id={item.id}>
-                <ItemCard item={item} rank={list.isRanked ? i + 1 : undefined} heading="h3" />
-                <li className="relative">
-                  {/* The summary leaves room on the right for the reorder buttons, so the open panel gets the full width. */}
-                  <details>
-                    <summary className="cursor-pointer py-2 pr-44 text-sm font-medium text-accent pointer-coarse:py-3 pointer-coarse:pr-40">
-                      Edit {item.title}
-                    </summary>
-                    <div className="mt-3 mb-4">
-                      <ItemForm action={updateItem.bind(null, item.id)} item={item} />
-                      {/* Kept inside the panel, away from the reorder buttons, so it can't be hit by accident. */}
-                      <div className="mt-4">
-                        <RemoveItemButton id={item.id} title={item.title} />
+              <RowMotion key={item.id} name={`item-${item.id}`}>
+                <ItemDropTarget id={item.id}>
+                  <ItemCard item={item} rank={list.isRanked ? i + 1 : undefined} heading="h3" />
+                  <li className="relative">
+                    {/* The summary leaves room on the right for the reorder buttons, so the open panel gets the full width. */}
+                    <details>
+                      <summary className="cursor-pointer py-2 pr-44 text-sm font-medium text-accent pointer-coarse:py-3 pointer-coarse:pr-40">
+                        Edit {item.title}
+                      </summary>
+                      <div className="mt-3 mb-4">
+                        <ItemForm action={updateItem.bind(null, item.id)} item={item} />
+                        {/* Kept inside the panel, away from the reorder buttons, so it can't be hit by accident. */}
+                        <div className="mt-4">
+                          <RemoveItemButton id={item.id} title={item.title} />
+                        </div>
                       </div>
+                    </details>
+                    <div className="absolute top-0 right-0 flex gap-1.5">
+                      <ItemDragHandle id={item.id} />
+                      <MoveButtons
+                        title={item.title}
+                        index={i}
+                        count={live.length}
+                        up={moveItem.bind(null, item.id, "up")}
+                        down={moveItem.bind(null, item.id, "down")}
+                        top={moveItem.bind(null, item.id, { onto: live[0].id })}
+                      />
                     </div>
-                  </details>
-                  <div className="absolute top-0 right-0 flex gap-1.5">
-                    <ItemDragHandle id={item.id} />
-                    <MoveButtons
-                      title={item.title}
-                      index={i}
-                      count={live.length}
-                      up={moveItem.bind(null, item.id, "up")}
-                      down={moveItem.bind(null, item.id, "down")}
-                      top={moveItem.bind(null, item.id, { onto: live[0].id })}
-                    />
-                  </div>
-                </li>
-              </ItemDropTarget>
+                  </li>
+                </ItemDropTarget>
+              </RowMotion>
             ))}
           </ul>
         )}
         {live.length === 0 && (
           <p className="mb-6 text-muted">Nothing on this list yet. Add the first thing you&apos;d recommend, and say why.</p>
         )}
-        <h2 id="add-item" className="mb-4 scroll-mt-6 text-xl font-bold tracking-tight">
-          Add an item
-        </h2>
-        <ItemForm action={addItem.bind(null, list.id)} />
+        <RowMotion>
+          <div>
+            <h2 id="add-item" className="mb-4 scroll-mt-6 text-xl font-bold tracking-tight">
+              Add an item
+            </h2>
+            <ItemForm action={addItem.bind(null, list.id)} />
+          </div>
+        </RowMotion>
         {removed.length > 0 && (
           <div className="mt-8">
             <h2 className="text-sm font-semibold">Recently removed</h2>
             <p className="mt-1 text-xs text-muted">Kept for 30 days, then gone for good.</p>
             <ul className="mt-2 divide-y divide-border">
               {removed.map((item) => (
-                <li key={item.id} className="flex items-center justify-between gap-3 py-1.5">
-                  <span className="min-w-0 text-sm break-words text-muted">{item.title}</span>
-                  <form action={restoreItem.bind(null, item.id)}>
-                    <button
-                      className="tap text-sm font-medium text-accent underline-offset-4 hover:underline"
-                      aria-label={`Restore ${item.title}`}
-                    >
-                      Restore
-                    </button>
-                  </form>
-                </li>
+                <RowMotion key={item.id} name={`item-${item.id}`}>
+                  <li className="flex items-center justify-between gap-3 py-1.5">
+                    <span className="min-w-0 text-sm break-words text-muted">{item.title}</span>
+                    <form action={restoreItem.bind(null, item.id)}>
+                      <button
+                        className="tap text-sm font-medium text-accent underline-offset-4 hover:underline"
+                        aria-label={`Restore ${item.title}`}
+                      >
+                        Restore
+                      </button>
+                    </form>
+                  </li>
+                </RowMotion>
               ))}
             </ul>
           </div>

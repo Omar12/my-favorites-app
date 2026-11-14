@@ -1,24 +1,37 @@
 @import "tailwindcss";
 
 :root {
-  --background: #faf8f5;
-  --surface: #ffffff;
-  --foreground: #1c1917;
-  --muted: #6b645d;
-  --border: #e7e2db;
-  --field: #8f867c; /* edge of a text field: 3:1 against the page and the field */
-  --accent: #c2410c;
+  /* Warm paper and espresso ink, with one terracotta voice: a note from a friend, not a catalogue. */
+  --background: #f7f1e7;
+  --surface: #fffdf9;
+  --foreground: #231a14;
+  --muted: #6b5e52;
+  --border: #e6dccd;
+  --field: #8c7f70; /* edge of a text field: 3:1 against the page and the field */
+  --accent: #c2410c; /* actions, rank, focus */
+  --accent-soft: #f4dcc9; /* quiet wash of the accent: tags */
+  --accent-ink: #8f3209; /* text on the wash */
+  --positive: #2c6a4c;
+  --caution: #855600;
+  --danger: #b3261e;
+  accent-color: var(--accent);
+  caret-color: var(--accent);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #141210;
-    --surface: #1f1c19;
-    --foreground: #f3efe9;
-    --muted: #a39b92;
-    --border: #322d28;
-    --field: #756d64;
+    --background: #17120e;
+    --surface: #221b16;
+    --foreground: #f5ede3;
+    --muted: #ab9f92;
+    --border: #382e26;
+    --field: #7d7166;
     --accent: #fb923c;
+    --accent-soft: #40261a;
+    --accent-ink: #fdc49c;
+    --positive: #7fc8a0;
+    --caution: #e5b454;
+    --danger: #f38b82;
   }
 }
 
@@ -30,6 +43,11 @@
   --color-border: var(--border);
   --color-field: var(--field);
   --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-positive: var(--positive);
+  --color-caution: var(--caution);
+  --color-danger: var(--danger);
   --font-sans: var(--font-geist-sans);
 }
 
@@ -69,6 +87,69 @@ body {
     from {
       opacity: 0;
       transform: translateY(0.5rem);
+    }
+  }
+}
+
+/* Buttons give under the finger. */
+.press {
+  transition: scale 120ms ease-out;
+}
+.press:active:not([aria-disabled="true"], :disabled) {
+  scale: 0.96;
+}
+
+/* A confirmation ("Added", "Link copied") arriving. */
+.pop {
+  display: inline-block;
+  animation: pop 0.25s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+}
+
+/* Dashboard rows (see row-motion.tsx): added rows grow in, removed ones fade, the rest slide into place. */
+::view-transition-group(.row-move) {
+  animation-duration: 0.35s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+::view-transition-new(.row-in) {
+  transform-origin: top center;
+  animation: row-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+::view-transition-old(.row-out) {
+  animation: row-out 0.15s ease-in both;
+}
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(0.75rem);
+  }
+}
+@keyframes row-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Reduced motion keeps the fades that confirm a change and drops the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .press {
+    transition: none;
+  }
+  .pop,
+  ::view-transition-new(.row-in) {
+    animation-name: row-fade;
+  }
+  ::view-transition-group(.row-move) {
+    animation-duration: 0s;
+  }
+  @keyframes row-fade {
+    from {
+      opacity: 0;
     }
   }
 }
