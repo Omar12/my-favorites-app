@@ -100,6 +100,8 @@ export const lists = pgTable(
     coverImageUrl: text("cover_image_url"),
     status: listStatus("status").notNull().default("draft"),
     position: integer("position").notNull().default(0),
+    /** Set when the owner deletes the list. It stays restorable until it is purged (see actions.ts). */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -121,6 +123,8 @@ export const items = pgTable(
     // A plain URL for now; uploaded photos will store their hosted URL here too.
     imageUrl: text("image_url"),
     details: jsonb("details").$type<ItemDetails>().notNull().default({}),
+    /** Set when the owner removes the item; restorable until purged. */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("items_list_position_idx").on(t.listId, t.position)],

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -12,7 +12,20 @@ import { profileTag } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 import { RESERVED_SLUGS, slugify } from "@/lib/slug";
 
-export type ListFormState = { error?: string; fieldErrors?: Record<string, string> };
+export type ListFormState = {
+  error?: string;
+  fieldErrors?: Record<string, string>;
+  /** What was typed, sent back with an error so the form refills instead of going blank. */
+  values?: Record<string, string>;
+  saved?: boolean;
+};
+
+function typed(formData: FormData) {
+  const values: Record<string, string> = {};
+  // React adds its own "$ACTION…" fields; skip those and files.
+  for (const [key, value] of formData) if (typeof value === "string" && !key.startsWith("$")) values[key] = value;
+  return values;
+}
 
 const optionalUrl = z
   .string()
@@ -74,56 +87,90 @@ function isDuplicate(err: unknown) {
 }
 
 const DUPLICATE: ListFormState = {
-  fieldErrors: { slug: "You already have a list at this link. Pick another." },
+  fieldErrors: { slug: "You already have a list at this link, or deleted one recently. Pick another, or restore the old one." },
 };
 
 export async function createList(_prev: ListFormState, formData: FormData): Promise<ListFormState> {
   const user = await requireUser();
   const result = parseListForm(formData);
-  if (!result.values) return { fieldErrors: result.fieldErrors };
+  if (!result.values) return { fieldErrors: result.fieldErrors, values: typed(formData) };
 
+  let id: string;
   try {
     // New lists go to the end of the profile.
-    await db.insert(lists).values({
-      ...result.values,
-      userId: user.id,
-      position: sql`(select coalesce(max(position), -1) + 1 from lists where user_id = ${user.id})`,
-    });
+    [{ id }] = await db
+      .insert(lists)
+      .values({
+        ...result.values,
+        userId: user.id,
+        position: sql`(select coalesce(max(position), -1) + 1 from lists where user_id = ${user.id})`,
+      })
+      .returning({ id: lists.id });
   } catch (err) {
-    if (isDuplicate(err)) return DUPLICATE;
+    if (isDuplicate(err)) return { ...DUPLICATE, values: typed(formData) };
     throw err;
   }
 
   updateTag(profileTag(user.username));
-  redirect("/dashboard");
+  // Straight into the new list, where items are added.
+  redirect(`/dashboard/lists/${id}`);
 }
 
 export async function updateList(id: string, _prev: ListFormState, formData: FormData): Promise<ListFormState> {
   const user = await requireUser();
   const result = parseListForm(formData);
-  if (!result.values) return { fieldErrors: result.fieldErrors };
+  if (!result.values) return { fieldErrors: result.fieldErrors, values: typed(formData) };
 
   try {
     const updated = await db
       .update(lists)
       .set({ ...result.values, updatedAt: new Date() })
-      .where(and(eq(lists.id, id), eq(lists.userId, user.id)))
+      .where(and(eq(lists.id, id), eq(lists.userId, user.id), isNull(lists.deletedAt)))
       .returning({ id: lists.id });
     if (updated.length === 0) return { error: "This list no longer exists." };
   } catch (err) {
-    if (isDuplicate(err)) return DUPLICATE;
+    if (isDuplicate(err)) return { ...DUPLICATE, values: typed(formData) };
     throw err;
   }
 
   updateTag(profileTag(user.username));
+  return { saved: true };
+}
+
+/** How long a deleted list or removed item can still be restored. */
+const KEEP_DAYS = 30;
+
+// shortcut: old deletions are only purged when the owner next deletes something; add a scheduled job if that ever leaves too much behind
+async function purgeOldDeletions(userId: string) {
+  const cutoff = new Date(Date.now() - KEEP_DAYS * 24 * 60 * 60 * 1000);
+  const ownLists = db.select({ id: lists.id }).from(lists).where(eq(lists.userId, userId));
+  await db.delete(items).where(and(lt(items.deletedAt, cutoff), inArray(items.listId, ownLists)));
+  await db.delete(lists).where(and(lt(lists.deletedAt, cutoff), eq(lists.userId, userId)));
+}
+
+/** Hides the list everywhere. It can be restored from the dashboard for KEEP_DAYS. */
+export async function deleteList(id: string) {
+  const user = await requireUser();
+  await db
+    .update(lists)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(lists.id, id), eq(lists.userId, user.id)));
+  await purgeOldDeletions(user.id);
+  updateTag(profileTag(user.username));
   redirect("/dashboard");
 }
 
-export async function deleteList(id: string) {
+/** Brings a deleted list back, at the end of the profile. */
+export async function restoreList(id: string) {
   const user = await requireUser();
-  await db.delete(lists).where(and(eq(lists.id, id), eq(lists.userId, user.id)));
+  await db
+    .update(lists)
+    .set({
+      deletedAt: null,
+      position: sql`(select coalesce(max(position), -1) + 1 from lists where user_id = ${user.id} and deleted_at is null)`,
+    })
+    .where(and(eq(lists.id, id), eq(lists.userId, user.id)));
   updateTag(profileTag(user.username));
-  redirect("/dashboard");
 }
 
 /** Swaps a list with its neighbour on the profile. */
@@ -134,7 +181,7 @@ export async function moveList(id: string, direction: "up" | "down") {
     const ordered = await tx
       .select({ id: lists.id })
       .from(lists)
-      .where(eq(lists.userId, user.id))
+      .where(and(eq(lists.userId, user.id), isNull(lists.deletedAt)))
       .orderBy(asc(lists.position), asc(lists.createdAt));
 
     const from = ordered.findIndex((l) => l.id === id);
@@ -153,7 +200,7 @@ export async function moveList(id: string, direction: "up" | "down") {
 
 const itemSchema = z.object({
   title: z.string().trim().min(1, "Give the item a name.").max(200, "Keep the name under 200 characters."),
-  note: z.string().trim().max(500, "Keep the description under 500 characters."),
+  note: z.string().trim().max(500, "Keep your reason under 500 characters."),
   url: optionalUrl,
   imageUrl: optionalUrl,
 });
@@ -179,13 +226,13 @@ function parseItemForm(formData: FormData) {
 export async function addItem(listId: string, _prev: ListFormState, formData: FormData): Promise<ListFormState> {
   const user = await requireUser();
   const result = parseItemForm(formData);
-  if (!result.values) return { fieldErrors: result.fieldErrors };
+  if (!result.values) return { fieldErrors: result.fieldErrors, values: typed(formData) };
   if (!z.uuid().safeParse(listId).success) return { error: "This list no longer exists." };
 
   const [list] = await db
     .select({ id: lists.id })
     .from(lists)
-    .where(and(eq(lists.id, listId), eq(lists.userId, user.id)));
+    .where(and(eq(lists.id, listId), eq(lists.userId, user.id), isNull(lists.deletedAt)));
   if (!list) return { error: "This list no longer exists." };
 
   await db.insert(items).values({
@@ -195,13 +242,13 @@ export async function addItem(listId: string, _prev: ListFormState, formData: Fo
   });
 
   updateTag(profileTag(user.username));
-  return {};
+  return { saved: true };
 }
 
 export async function updateItem(itemId: string, _prev: ListFormState, formData: FormData): Promise<ListFormState> {
   const user = await requireUser();
   const result = parseItemForm(formData);
-  if (!result.values) return { fieldErrors: result.fieldErrors };
+  if (!result.values) return { fieldErrors: result.fieldErrors, values: typed(formData) };
   if (!z.uuid().safeParse(itemId).success) return { error: "This item no longer exists." };
 
   // Only items on the signed-in user's own lists.
@@ -218,7 +265,7 @@ export async function updateItem(itemId: string, _prev: ListFormState, formData:
   if (updated.length === 0) return { error: "This item no longer exists." };
 
   updateTag(profileTag(user.username));
-  return {};
+  return { saved: true };
 }
 
 /** The item, if it sits on one of this user's lists. */
@@ -236,7 +283,23 @@ export async function removeItem(itemId: string) {
   const user = await requireUser();
   const item = await findOwnItem(itemId, user.id);
   if (!item) return;
-  await db.delete(items).where(eq(items.id, item.id));
+  await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, item.id));
+  await purgeOldDeletions(user.id);
+  updateTag(profileTag(user.username));
+}
+
+/** Brings a removed item back, at the end of its list. */
+export async function restoreItem(itemId: string) {
+  const user = await requireUser();
+  const item = await findOwnItem(itemId, user.id);
+  if (!item) return;
+  await db
+    .update(items)
+    .set({
+      deletedAt: null,
+      position: sql`(select coalesce(max(position), -1) + 1 from items where list_id = ${item.listId} and deleted_at is null)`,
+    })
+    .where(eq(items.id, item.id));
   updateTag(profileTag(user.username));
 }
 
@@ -250,7 +313,7 @@ export async function moveItem(itemId: string, target: "up" | "down" | { onto: s
     const ordered = await tx
       .select({ id: items.id })
       .from(items)
-      .where(eq(items.listId, item.listId))
+      .where(and(eq(items.listId, item.listId), isNull(items.deletedAt)))
       .orderBy(asc(items.position), asc(items.createdAt));
 
     const from = ordered.findIndex((i) => i.id === item.id);

@@ -9,12 +9,9 @@ export function RemoveItemButton({ id, title }: { id: string; title: string }) {
     <button
       type="button"
       disabled={pending}
-      onClick={() => {
-        if (confirm(`Remove "${title}" from this list? This can't be undone.`)) {
-          startTransition(() => removeItem(id));
-        }
-      }}
-      className="text-sm font-medium text-red-600 underline-offset-4 hover:underline disabled:opacity-60 dark:text-red-400"
+      aria-label={`Remove ${title}`}
+      onClick={() => startTransition(() => removeItem(id))} // no confirm: it can be restored below the list
+      className="tap text-sm font-medium text-danger underline-offset-4 hover:underline disabled:opacity-60"
     >
       {pending ? "Removing…" : "Remove"}
     </button>

@@ -2,25 +2,41 @@
 
 import { useState } from "react";
 
-/** Copies the list's public link to the clipboard. */
-export function ShareListButton({ path, title }: { path: string; title: string }) {
-  const [label, setLabel] = useState("Share");
+/** Shares the list's public link: the native share sheet where there is one, otherwise the clipboard. */
+export function ShareListButton({
+  path,
+  title,
+  label: idle = "Share",
+  className = "tap font-medium text-accent underline-offset-4 hover:underline",
+}: {
+  path: string;
+  title: string;
+  label?: string;
+  className?: string;
+}) {
+  const [label, setLabel] = useState(idle);
   return (
     <button
       type="button"
-      aria-label={`Copy link to ${title}`}
+      aria-label={`Share ${title}`}
       onClick={async () => {
+        const url = new URL(path, location.origin).href;
         try {
-          await navigator.clipboard.writeText(new URL(path, location.origin).href);
+          if (navigator.share) return await navigator.share({ title, url });
+          await navigator.clipboard.writeText(url);
           setLabel("Link copied");
-        } catch {
-          setLabel("Couldn't copy");
+        } catch (e) {
+          // Closing the share sheet is not a failure.
+          if (e instanceof DOMException && e.name === "AbortError") return;
+          setLabel("Couldn't share");
         }
-        setTimeout(() => setLabel("Share"), 2000);
+        setTimeout(() => setLabel(idle), 2000);
       }}
-      className="font-medium text-accent underline-offset-4 hover:underline"
+      className={className}
     >
-      <span aria-live="polite">{label}</span>
+      <span key={label} aria-live="polite" className={label === idle ? undefined : "pop"}>
+        {label}
+      </span>
     </button>
   );
 }

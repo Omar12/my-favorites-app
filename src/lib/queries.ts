@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { cacheTag } from "next/cache";
 import { db } from "@/db";
 import { items, lists, users } from "@/db/schema";
@@ -28,10 +28,10 @@ export async function getProfile(username: string) {
       // Table names are spelled out: Drizzle drops the table prefix from
       // interpolated columns in single-table selects, which would make this
       // compare items.list_id with items.id.
-      itemCount: sql<number>`(select count(*)::int from items where items.list_id = lists.id)`,
+      itemCount: sql<number>`(select count(*)::int from items where items.list_id = lists.id and items.deleted_at is null)`,
     })
     .from(lists)
-    .where(and(eq(lists.userId, user.id), eq(lists.status, "public")))
+    .where(and(eq(lists.userId, user.id), eq(lists.status, "public"), isNull(lists.deletedAt)))
     .orderBy(asc(lists.position));
 
   return { user, lists: publicLists };
@@ -52,8 +52,9 @@ export async function getSharedList(username: string, slug: string) {
       eq(lists.userId, user.id),
       eq(lists.slug, slug.toLowerCase()),
       inArray(lists.status, ["public", "unlisted"]),
+      isNull(lists.deletedAt),
     ),
-    with: { items: { orderBy: asc(items.position) } },
+    with: { items: { where: isNull(items.deletedAt), orderBy: asc(items.position) } },
   });
   if (!list) return null;
 

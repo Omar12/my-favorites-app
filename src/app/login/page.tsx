@@ -17,7 +17,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <h1 className="text-2xl font-bold tracking-tight">Sign in</h1>
       <p className="mt-2 mb-6 text-muted">We&apos;ll email you a link. No password needed.</p>
       {error && (
-        <p role="alert" className="mb-4 text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="mb-4 text-sm text-danger">
           That link has expired or was already used. Request a new one.
         </p>
       )}

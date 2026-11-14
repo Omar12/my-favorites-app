@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/components/avatar";
-import { ItemCard } from "@/components/item-card";
+import { ItemPost } from "@/components/item-post";
 import { Tags } from "@/components/tags";
+import { ShareListButton } from "@/app/dashboard/share-list-button";
 import { getSharedList } from "@/lib/queries";
 import { SITE_NAME, safeUrl } from "@/lib/site";
 
@@ -56,7 +57,7 @@ export default async function ListPage({ params }: PageProps<"/[username]/[slug]
         {user.displayName} recommends
       </Link>
 
-      <header className="mt-5">
+      <header className="post mt-5">
         <h1 className="text-3xl leading-tight font-bold tracking-tight text-balance">{list.title}</h1>
         {list.description && <p className="mt-3 leading-relaxed text-muted">{list.description}</p>}
         <div className="mt-4">
@@ -65,13 +66,23 @@ export default async function ListPage({ params }: PageProps<"/[username]/[slug]
       </header>
 
       {list.items.length === 0 ? (
-        <p className="mt-10 text-muted">Nothing on this list yet.</p>
+        <p className="mt-10 text-muted">Nothing here yet. Still deciding.</p>
       ) : (
-        <ol className="mt-8 space-y-3">
-          {list.items.map((item, i) => (
-            <ItemCard key={item.id} item={item} rank={list.isRanked ? i + 1 : undefined} />
-          ))}
-        </ol>
+        <>
+          <ol className="mt-8">
+            {list.items.map((item, i) => (
+              <ItemPost key={item.id} item={item} index={i} rank={list.isRanked ? i + 1 : undefined} />
+            ))}
+          </ol>
+          <p className="mt-4 border-t border-border pt-6 text-center">
+            <ShareListButton
+              path={`/${user.username}/${list.slug}`}
+              title={list.title}
+              label="Send this list"
+              className="press inline-flex min-h-11 items-center rounded-full border border-field px-5 font-semibold transition-colors hover:border-accent hover:text-accent"
+            />
+          </p>
+        </>
       )}
     </article>
   );
